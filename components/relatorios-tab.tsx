@@ -6,9 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Download, TrendingUp, CreditCard, ShoppingBag } from "lucide-react"
+import { Download, TrendingUp, CreditCard, ShoppingBag, MoreVertical, Trash2, Eye } from "lucide-react"
 import type { Venda } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export function RelatoriosTab() {
   const [vendas, setVendas] = useState<Venda[]>([])
@@ -95,6 +107,54 @@ export function RelatoriosTab() {
       title: "Sucesso",
       description: "Relatório exportado com sucesso!",
     })
+  }
+
+  const excluirVenda = async (id: number) => {
+    try {
+      const response = await fetch(`/api/vendas/${id}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        carregarVendas()
+        toast({
+          title: "Sucesso",
+          description: "Venda excluída com sucesso!",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Erro",
+          description: error.error || "Erro ao excluir venda",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir venda",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const visualizarDetalhesVenda = (venda: Venda) => {
+    try {
+      const itens = JSON.parse(venda.itens_vendidos)
+      const detalhes = itens
+        .map((item: any) => `${item.quantidade}x ${item.nome} - R$ ${Number(item.preco).toFixed(2)}`)
+        .join("\n")
+
+      alert(
+        `Detalhes da Venda #${venda.id}\n\nData: ${new Date(venda.data_hora).toLocaleString("pt-BR")}\nForma de Pagamento: ${venda.forma_pagamento}\nTotal: R$ ${Number(venda.valor_total).toFixed(2)}\n\nItens:\n${detalhes}`,
+      )
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao visualizar detalhes da venda",
+        variant: "destructive",
+      })
+    }
   }
 
   const resumo = calcularResumo()
@@ -190,14 +250,61 @@ export function RelatoriosTab() {
                 .sort((a, b) => b.data_hora - a.data_hora)
                 .map((venda) => (
                   <div key={venda.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium text-gray-900">{new Date(venda.data_hora).toLocaleString("pt-BR")}</p>
                       <p className="text-sm text-gray-600">{venda.forma_pagamento}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right mr-3">
                       <p className="font-bold text-green-600">R$ {Number(venda.valor_total).toFixed(2)}</p>
                       <p className="text-xs text-gray-500">ID: {venda.id}</p>
                     </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => visualizarDetalhesVenda(venda)}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver Detalhes
+                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir Venda
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.
+                                <br />
+                                <br />
+                                <strong>Venda #{venda.id}</strong>
+                                <br />
+                                Data: {new Date(venda.data_hora).toLocaleString("pt-BR")}
+                                <br />
+                                Valor: R$ {Number(venda.valor_total).toFixed(2)}
+                                <br />
+                                Pagamento: {venda.forma_pagamento}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => excluirVenda(venda.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Excluir Venda
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))
             )}
